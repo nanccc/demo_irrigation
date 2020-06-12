@@ -28,7 +28,7 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-
+//#define Mmode test1
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -46,11 +46,16 @@ TIM_HandleTypeDef htim2;
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
-int Humitide_sol[20] ={0, 100, 145, 50, 65, 100, 110, 120, 90, 85, 80, 75, 60, 20, 25, 60,50};
+int Humitide_sol[20] ={0, 100, 145, 50, 65, 100, 110, 120, 90, 85, 80, 75, 60, 20, 25, 60};
+int seuil_l;
+int seuil_h;
+int seuil[3][2] ={ {40, 90},{45, 75},{60, 150} };
+
+/**  Global variable  */
 int i = 0;
 int flag = 0;
-int seuil_l = 40;
-int seuil_h = 90;
+int a = 0;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -101,23 +106,27 @@ int main(void)
   MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
   HAL_GPIO_WritePin(GPIOC,GPIO_PIN_0,RESET);
-  TIM2->SR &= ~TIM_SR_UIF;						//clear update interrupt Flag
+  HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, RESET);
+  TIM2->SR &= ~TIM_SR_UIF;						//!< clear update interrupt Flag
   HAL_TIM_Base_Start_IT(&htim2);
 
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+
   while (1)
   {
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+	seuil_l = seuil[a][0];
+	seuil_h = seuil[a][1];
+
 	irrigation(seuil_l, seuil_h);
 
-	HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
-	/* USER CODE END 3 */
   }
+  /* USER CODE END 3 */
 }
 
 /**
@@ -286,6 +295,10 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(LD2_GPIO_Port, &GPIO_InitStruct);
+
+  /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI4_15_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI4_15_IRQn);
 
 }
 
