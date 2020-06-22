@@ -61,6 +61,9 @@ extern TIM_HandleTypeDef htim2;
 extern int flag;
 extern int i;
 extern int a;
+extern int seuil_l;
+extern int seuil_h;
+extern int seuil[3][2];
 
 /* USER CODE END EV */
 
@@ -158,7 +161,8 @@ void EXTI4_15_IRQHandler(void)
   {
 	  a =0;
   }
-
+  seuil_l = seuil[a][0];
+  seuil_h = seuil[a][1];
   /* USER CODE END EXTI4_15_IRQn 1 */
 }
 

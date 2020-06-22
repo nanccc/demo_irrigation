@@ -114,14 +114,14 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-
+  seuil_l = seuil[a][0];
+  seuil_h = seuil[a][1];
   while (1)
   {
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	seuil_l = seuil[a][0];
-	seuil_h = seuil[a][1];
+
 
 	irrigation(seuil_l, seuil_h);
 
