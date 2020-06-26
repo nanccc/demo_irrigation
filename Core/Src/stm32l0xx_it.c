@@ -57,13 +57,17 @@
 
 /* External variables --------------------------------------------------------*/
 extern TIM_HandleTypeDef htim2;
+extern TIM_HandleTypeDef htim3;
 /* USER CODE BEGIN EV */
 extern int flag;
 extern int i;
 extern int a;
+extern int min;
 extern int seuil_l;
 extern int seuil_h;
 extern int seuil[3][2];
+
+extern int time_irri;
 
 /* USER CODE END EV */
 
@@ -179,6 +183,25 @@ void TIM2_IRQHandler(void)
   i++;
   flag = 0;
   /* USER CODE END TIM2_IRQn 1 */
+}
+
+/**
+  * @brief This function handles TIM3 global interrupt.
+  */
+void TIM3_IRQHandler(void)
+{
+  /* USER CODE BEGIN TIM3_IRQn 0 */
+
+  /* USER CODE END TIM3_IRQn 0 */
+  HAL_TIM_IRQHandler(&htim3);
+  /* USER CODE BEGIN TIM3_IRQn 1 */
+  min++;
+  if (min == time_irri+1)
+  {
+	  i = 0;
+
+  }
+  /* USER CODE END TIM3_IRQn 1 */
 }
 
 /* USER CODE BEGIN 1 */

@@ -42,20 +42,42 @@
 
 /* Private variables ---------------------------------------------------------*/
 TIM_HandleTypeDef htim2;
+TIM_HandleTypeDef htim3;
 
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
-int Humitide_sol[20] ={0, 100, 145, 50, 65, 100, 110, 120, 90, 85, 80, 75, 60, 20, 25, 60};
-int seuil_l;
-int seuil_h;
-int seuil[3][2] ={ {40, 90},{45, 75},{60, 150} };
+int Humitide_sol[70] ={90, 85, 81, 75, 73, 70, 69, 68, 68, 67,\
+		 67, 66, 65, 64, 63, 62, 61, 60, 60, 60,\
+		 65, 65, 65, 65, 65, 65, 65, 65, 65, 64,\
+		 67, 67, 66, 66, 66, 66, 66, 66, 66, 66,\
+		 67, 67, 66, 66, 66, 66, 66, 66, 66, 66,\
+		 62, 62, 62, 62, 62, 62, 62, 62, 62, 62,\
+		 61, 61, 61, 61, 61, 61, 61, 60, 60, 59};
+
+int seuil[3][2] ={ {30, 60},{45, 75},{60, 150} };
+int Humitide_begin;
+int DH;								//difference of humidity
+int p_stade_1;
+int p_stade_2;
+int p_stade_3;
+int p_stade_4;
+int time_irri = 5;					// irrigation time: minus
+int r_time_irri;
+int sample_1 = 3;
+int sample_2 = 4;
+int sample_3 = 5;
+
+int Humitide_fin_stade1;
+
 
 /**  Global variable  */
 int i = 0;
 int flag = 0;
-int a = 0;
-
+int a = 0;						//number of the reference
+int seuil_l;
+int seuil_h;
+int min = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -63,10 +85,16 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_TIM2_Init(void);
+static void MX_TIM3_Init(void);
 /* USER CODE BEGIN PFP */
-static void MX_TIM2_Init_5s(void);
+static void MY_Period_Init(int time_irrigation);
+static void MX_TIM2_Init_stade_1(void);
+static void MX_TIM2_Init_stade_2(void);
+static void MX_TIM2_Init_stade_3(void);
 void delay_ms(uint16_t nms);
 void irrigation(int seuil_low, int seuil_high);
+void Update_Period(int* stade1, int* stade2, int* stade3, int* stade4);
+
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -104,18 +132,28 @@ int main(void)
   MX_GPIO_Init();
   MX_USART2_UART_Init();
   MX_TIM2_Init();
+  MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
+  MY_Period_Init(time_irri);
   HAL_GPIO_WritePin(GPIOC,GPIO_PIN_0,RESET);
   HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, RESET);
+  MX_TIM2_Init_stade_1();
   TIM2->SR &= ~TIM_SR_UIF;						//!< clear update interrupt Flag
+  TIM3->SR &= ~TIM_SR_UIF;						//!< clear update interrupt Flag
   HAL_TIM_Base_Start_IT(&htim2);
-
+  HAL_TIM_Base_Start_IT(&htim3);
+  HAL_GPIO_WritePin(GPIOC,GPIO_PIN_0,SET);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   seuil_l = seuil[a][0];
   seuil_h = seuil[a][1];
+
+//  Humitide_begin = 90;                           // testing
+  Humitide_begin = Humitide_sol[i];
+  DH = Humitide_begin - seuil_h;				 // 30
+
   while (1)
   {
     /* USER CODE END WHILE */
@@ -197,7 +235,7 @@ static void MX_TIM2_Init(void)
   htim2.Instance = TIM2;
   htim2.Init.Prescaler = 32000;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim2.Init.Period = 10000;
+  htim2.Init.Period = 1000*p_stade_4;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
@@ -218,6 +256,51 @@ static void MX_TIM2_Init(void)
   /* USER CODE BEGIN TIM2_Init 2 */
 
   /* USER CODE END TIM2_Init 2 */
+
+}
+
+/**
+  * @brief TIM3 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM3_Init(void)
+{
+
+  /* USER CODE BEGIN TIM3_Init 0 */
+
+  /* USER CODE END TIM3_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM3_Init 1 */
+
+  /* USER CODE END TIM3_Init 1 */
+  htim3.Instance = TIM3;
+  htim3.Init.Prescaler = 64000;
+  htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim3.Init.Period = 30000;
+  htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim3, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM3_Init 2 */
+
+  /* USER CODE END TIM3_Init 2 */
 
 }
 
@@ -303,7 +386,16 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-static void MX_TIM2_Init_5s(void)
+static void MY_Period_Init(int time_irrigation)
+{
+	p_stade_1 = (time_irrigation*60*4)/(10*3);			//40s, 3 samples
+	p_stade_2 = (time_irrigation*60*3)/(10*4);			//22.5s, 4 samples
+	p_stade_3 = (time_irrigation*60*2)/(10*5);			//12s, 5 samples
+	p_stade_4 = 2;										//2s
+}
+
+
+static void MX_TIM2_Init_stade_1(void)
 {
 
   /* USER CODE BEGIN TIM2_Init 0 */
@@ -319,7 +411,7 @@ static void MX_TIM2_Init_5s(void)
   htim2.Instance = TIM2;
   htim2.Init.Prescaler = 32000;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim2.Init.Period = 5000;
+  htim2.Init.Period = 1000*p_stade_1;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
@@ -343,6 +435,85 @@ static void MX_TIM2_Init_5s(void)
 
 }
 
+static void MX_TIM2_Init_stade_2(void)
+{
+
+  /* USER CODE BEGIN TIM2_Init 0 */
+
+  /* USER CODE END TIM2_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM2_Init 1 */
+
+  /* USER CODE END TIM2_Init 1 */
+  htim2.Instance = TIM2;
+  htim2.Init.Prescaler = 32000;
+  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim2.Init.Period = 1000*p_stade_2;
+  htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim2, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM2_Init 2 */
+
+  /* USER CODE END TIM2_Init 2 */
+
+}
+
+static void MX_TIM2_Init_stade_3(void)
+{
+
+  /* USER CODE BEGIN TIM2_Init 0 */
+
+  /* USER CODE END TIM2_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM2_Init 1 */
+
+  /* USER CODE END TIM2_Init 1 */
+  htim2.Instance = TIM2;
+  htim2.Init.Prescaler = 32000;
+  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim2.Init.Period = 1000*p_stade_3;
+  htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim2, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM2_Init 2 */
+
+  /* USER CODE END TIM2_Init 2 */
+
+}
 /**	delay based on SysTick without interrupt
   * HCLK = 32MHz, system clock= HCLK/8 = 4MHz
   * 	pour avoir 1 ms de delay, il faut 4000 ticks
@@ -373,45 +544,84 @@ void delay_ms(uint16_t nms)
 
 void irrigation(int seuil_low, int seuil_high)
 {
+	if (min == time_irri+1 )							//wait 1 minute before starting another loop
+	{
+		HAL_GPIO_WritePin(GPIOC,GPIO_PIN_0,SET);	//LED on
+		Update_Period(&p_stade_1, &p_stade_2, &p_stade_3, &p_stade_4);	//update sampling period
+		/* prepare for another loop */
+		Humitide_fin_stade1 = 0;
+		min = 0;
+		/*	restart to read data from sensor */
+
+		MX_TIM2_Init_stade_1();
+		TIM2->SR &= ~TIM_SR_UIF;
+		HAL_TIM_Base_Start_IT(&htim2);
+	}
+
+	/* read a new data from the sensor */
  	if (flag == 0)
 	{
 		flag = 1;
 
-		if (Humitide_sol[i]> seuil_high)
+//		if (Humitide_sol[i]< seuil_h)
+//		{
+//			HAL_GPIO_WritePin(GPIOC,GPIO_PIN_0,RESET);
+//			time_irri = min;
+//		}
+
+		if (i == sample_1)							//swap to stade2
 		{
-
-			if (htim2.Init.Period == 5000)
-			{
-				HAL_TIM_Base_Stop_IT(&htim2);
-				MX_TIM2_Init();
-				TIM2->SR &= ~TIM_SR_UIF;
-				HAL_TIM_Base_Start_IT(&htim2);
-			}
-			/* LED on for 4s */
-			HAL_GPIO_WritePin(GPIOC,GPIO_PIN_0,SET);
-			delay_ms(4000);
-			HAL_GPIO_WritePin(GPIOC,GPIO_PIN_0,RESET);
-
+			Humitide_fin_stade1 = Humitide_sol[i];
+			HAL_TIM_Base_Stop_IT(&htim2);
+			MX_TIM2_Init_stade_2();
+			TIM2->SR &= ~TIM_SR_UIF;
+			HAL_TIM_Base_Start_IT(&htim2);
 		}
-		else if (Humitide_sol[i] > seuil_low && Humitide_sol[i] <= seuil_high)
+		else if (i == sample_1+sample_2)			//swap to stade3
 		{
-			if (htim2.Init.Period == 10000)
-			{
-				HAL_TIM_Base_Stop_IT(&htim2);
-				MX_TIM2_Init_5s();
-				TIM2->SR &= ~TIM_SR_UIF;
-				HAL_TIM_Base_Start_IT(&htim2);
-			}
-			else
-			{
-				HAL_GPIO_WritePin(GPIOC,GPIO_PIN_0,RESET);
-			}
+			HAL_TIM_Base_Stop_IT(&htim2);
+			MX_TIM2_Init_stade_3();
+			TIM2->SR &= ~TIM_SR_UIF;
+			HAL_TIM_Base_Start_IT(&htim2);
+		}
+		else if (i == sample_1+sample_2+sample_3 )	//swap to stade4
+		{
+			HAL_TIM_Base_Stop_IT(&htim2);
+			MX_TIM2_Init();
+			TIM2->SR &= ~TIM_SR_UIF;
+			HAL_TIM_Base_Start_IT(&htim2);
+		}
+		else if (i >= sample_1+sample_2+sample_3 && Humitide_sol[i] <= seuil_h)
+		{
+			HAL_GPIO_WritePin(GPIOC,GPIO_PIN_0,RESET);
+			HAL_TIM_Base_Stop_IT(&htim2);
+			time_irri = min+1;
 		}
 		else
 		{
-			HAL_GPIO_WritePin(GPIOC,GPIO_PIN_0,RESET);
+			Error_Handler();
+		}
+
+	}
+
+}
+
+void Update_Period(int* stade1, int* stade2, int* stade3, int* stade4)
+{
+
+	if (Humitide_fin_stade1 > DH*0.4+seuil_h )
+	{
+		*stade1 = *stade1 + 2;
+	}
+	else if (Humitide_fin_stade1 < seuil_h)
+	{
+		sample_1--;
+		if (sample_1 < 0)
+		{
+			sample_1 = 0;
 		}
 	}
+
 }
 /* USER CODE END 4 */
 
