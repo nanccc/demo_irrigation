@@ -47,8 +47,8 @@ TIM_HandleTypeDef htim3;
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
-int Humitide_sol[70] ={90, 85, 81, 75, 73, 70, 69, 68, 68, 67,\
-		 67, 66, 65, 64, 63, 62, 61, 60, 60, 60,\
+int Humitide_sol[70] ={150, 100, 87, 75, 74, 70, 69, 68, 68, 67,\
+		 67, 66, 65, 64, 63, 65, 65, 65, 65, 64,\
 		 65, 65, 65, 65, 65, 65, 65, 65, 65, 64,\
 		 67, 67, 66, 66, 66, 66, 66, 66, 66, 66,\
 		 67, 67, 66, 66, 66, 66, 66, 66, 66, 66,\
@@ -62,14 +62,15 @@ int p_stade_1;
 int p_stade_2;
 int p_stade_3;
 int p_stade_4;
-int time_irri = 5;					// irrigation time: minus
+int time_irri = 6;					// irrigation time: minus
 int r_time_irri;
 int sample_1 = 3;
 int sample_2 = 4;
 int sample_3 = 5;
 
 int Humitide_fin_stade1;
-
+int Humitide_fin_stade2;
+int Humitide_fin_stade3;
 
 /**  Global variable  */
 int i = 0;
@@ -152,7 +153,7 @@ int main(void)
 
 //  Humitide_begin = 90;                           // testing
   Humitide_begin = Humitide_sol[i];
-  DH = Humitide_begin - seuil_h;				 // 30
+  DH = Humitide_begin - seuil_h;				 // 40
 
   while (1)
   {
@@ -233,9 +234,9 @@ static void MX_TIM2_Init(void)
 
   /* USER CODE END TIM2_Init 1 */
   htim2.Instance = TIM2;
-  htim2.Init.Prescaler = 32000;
+  htim2.Init.Prescaler = 31999;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim2.Init.Period = 1000*p_stade_4;
+  htim2.Init.Period = p_stade_4*1000-1;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
@@ -278,9 +279,9 @@ static void MX_TIM3_Init(void)
 
   /* USER CODE END TIM3_Init 1 */
   htim3.Instance = TIM3;
-  htim3.Init.Prescaler = 64000;
+  htim3.Init.Prescaler = 63999;
   htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim3.Init.Period = 30000;
+  htim3.Init.Period = 29999;
   htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
@@ -388,9 +389,9 @@ static void MX_GPIO_Init(void)
 /* USER CODE BEGIN 4 */
 static void MY_Period_Init(int time_irrigation)
 {
-	p_stade_1 = (time_irrigation*60*4)/(10*3);			//40s, 3 samples
-	p_stade_2 = (time_irrigation*60*3)/(10*4);			//22.5s, 4 samples
-	p_stade_3 = (time_irrigation*60*2)/(10*5);			//12s, 5 samples
+	p_stade_1 = (time_irrigation*60*4)/(10*3);			// 3 samples
+	p_stade_2 = (time_irrigation*60*2)/(10*4);			// 4 samples
+	p_stade_3 = (time_irrigation*60*2)/(10*5);			// 5 samples
 	p_stade_4 = 2;										//2s
 }
 
@@ -409,9 +410,9 @@ static void MX_TIM2_Init_stade_1(void)
 
   /* USER CODE END TIM2_Init 1 */
   htim2.Instance = TIM2;
-  htim2.Init.Prescaler = 32000;
+  htim2.Init.Prescaler = 31999;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim2.Init.Period = 1000*p_stade_1;
+  htim2.Init.Period = 1000*p_stade_1-1;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
@@ -449,9 +450,9 @@ static void MX_TIM2_Init_stade_2(void)
 
   /* USER CODE END TIM2_Init 1 */
   htim2.Instance = TIM2;
-  htim2.Init.Prescaler = 32000;
+  htim2.Init.Prescaler = 31999;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim2.Init.Period = 1000*p_stade_2;
+  htim2.Init.Period = 1000*p_stade_2-1;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
@@ -489,9 +490,9 @@ static void MX_TIM2_Init_stade_3(void)
 
   /* USER CODE END TIM2_Init 1 */
   htim2.Instance = TIM2;
-  htim2.Init.Prescaler = 32000;
+  htim2.Init.Prescaler = 31999;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim2.Init.Period = 1000*p_stade_3;
+  htim2.Init.Period = 1000*p_stade_3-1;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
@@ -550,6 +551,8 @@ void irrigation(int seuil_low, int seuil_high)
 		Update_Period(&p_stade_1, &p_stade_2, &p_stade_3, &p_stade_4);	//update sampling period
 		/* prepare for another loop */
 		Humitide_fin_stade1 = 0;
+		Humitide_fin_stade2 = 0;
+		Humitide_fin_stade3 = 0;
 		min = 0;
 		/*	restart to read data from sensor */
 
@@ -563,12 +566,6 @@ void irrigation(int seuil_low, int seuil_high)
 	{
 		flag = 1;
 
-//		if (Humitide_sol[i]< seuil_h)
-//		{
-//			HAL_GPIO_WritePin(GPIOC,GPIO_PIN_0,RESET);
-//			time_irri = min;
-//		}
-
 		if (i == sample_1)							//swap to stade2
 		{
 			Humitide_fin_stade1 = Humitide_sol[i];
@@ -579,6 +576,7 @@ void irrigation(int seuil_low, int seuil_high)
 		}
 		else if (i == sample_1+sample_2)			//swap to stade3
 		{
+			Humitide_fin_stade2 = Humitide_sol[i];
 			HAL_TIM_Base_Stop_IT(&htim2);
 			MX_TIM2_Init_stade_3();
 			TIM2->SR &= ~TIM_SR_UIF;
@@ -586,6 +584,7 @@ void irrigation(int seuil_low, int seuil_high)
 		}
 		else if (i == sample_1+sample_2+sample_3 )	//swap to stade4
 		{
+			Humitide_fin_stade3 = Humitide_sol[i];
 			HAL_TIM_Base_Stop_IT(&htim2);
 			MX_TIM2_Init();
 			TIM2->SR &= ~TIM_SR_UIF;
@@ -595,7 +594,8 @@ void irrigation(int seuil_low, int seuil_high)
 		{
 			HAL_GPIO_WritePin(GPIOC,GPIO_PIN_0,RESET);
 			HAL_TIM_Base_Stop_IT(&htim2);
-			time_irri = min+1;
+
+//			time_irri = min+1;
 		}
 		else
 		{
@@ -608,18 +608,35 @@ void irrigation(int seuil_low, int seuil_high)
 
 void Update_Period(int* stade1, int* stade2, int* stade3, int* stade4)
 {
+	int seuil_1 = DH*0.15+seuil_h;
+	int seuil_2 = DH*0.05+seuil_h;
+	int seuil_3 = DH*0.02+seuil_h;
 
-	if (Humitide_fin_stade1 > DH*0.4+seuil_h )
+	if (Humitide_fin_stade1 > seuil_1 )
 	{
 		*stade1 = *stade1 + 2;
 	}
-	else if (Humitide_fin_stade1 < seuil_h)
+	else if (Humitide_fin_stade1 < seuil_1)
 	{
-		sample_1--;
-		if (sample_1 < 0)
-		{
-			sample_1 = 0;
-		}
+		*stade1 = *stade1 - 2;
+	}
+
+	if (Humitide_fin_stade2 > seuil_2 )
+	{
+		(*stade2)++;
+	}
+	else if (Humitide_fin_stade2 < seuil_2 )
+	{
+		(*stade2)--;
+	}
+
+	if (Humitide_fin_stade3 > seuil_3 )
+	{
+		(*stade3)++;
+	}
+	else if (Humitide_fin_stade3 < seuil_3 )
+	{
+		(*stade3)--;
 	}
 
 }
