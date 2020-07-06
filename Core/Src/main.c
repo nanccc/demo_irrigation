@@ -20,6 +20,7 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "math.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -28,7 +29,7 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-//#define Mmode test1
+//#define Mode test1
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -48,10 +49,10 @@ UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
 int Humitide_sol[70] ={150, 100, 87, 75, 74, 70, 69, 68, 68, 67,\
-		 67, 66, 65, 64, 63, 65, 65, 65, 65, 64,\
-		 65, 65, 65, 65, 65, 65, 65, 65, 65, 64,\
-		 67, 67, 66, 66, 66, 66, 66, 66, 66, 66,\
-		 67, 67, 66, 66, 66, 66, 66, 66, 66, 66,\
+		 67, 66, 65, 65, 65, 65, 65, 65, 65, 65,\
+		 64, 64, 64, 64, 65, 64, 64, 64, 64, 64,\
+		 63, 63, 63, 63, 64, 63, 63, 63, 63, 63,\
+		 62, 62, 62, 62, 62, 62, 62, 60, 60, 59,\
 		 62, 62, 62, 62, 62, 62, 62, 62, 62, 62,\
 		 61, 61, 61, 61, 61, 61, 61, 60, 60, 59};
 
@@ -63,7 +64,9 @@ int p_stade_2;
 int p_stade_3;
 int p_stade_4;
 int time_irri = 6;					// irrigation time: minus
-int r_time_irri;
+int seuil_1;
+int seuil_2;
+double real_time_irri;
 int sample_1 = 3;
 int sample_2 = 4;
 int sample_3 = 5;
@@ -72,12 +75,18 @@ int Humitide_fin_stade1;
 int Humitide_fin_stade2;
 int Humitide_fin_stade3;
 
+double y=0;
+int x=0;
+int Tau=0;
+int end=0;
+
 /**  Global variable  */
 int i = 0;
 int flag = 0;
 int a = 0;						//number of the reference
 int seuil_l;
 int seuil_h;
+int second = 0;
 int min = 0;
 /* USER CODE END PV */
 
@@ -94,7 +103,6 @@ static void MX_TIM2_Init_stade_2(void);
 static void MX_TIM2_Init_stade_3(void);
 void delay_ms(uint16_t nms);
 void irrigation(int seuil_low, int seuil_high);
-void Update_Period(int* stade1, int* stade2, int* stade3, int* stade4);
 
 /* USER CODE END PFP */
 
@@ -281,7 +289,7 @@ static void MX_TIM3_Init(void)
   htim3.Instance = TIM3;
   htim3.Init.Prescaler = 63999;
   htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim3.Init.Period = 29999;
+  htim3.Init.Period = 499;
   htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
@@ -389,10 +397,10 @@ static void MX_GPIO_Init(void)
 /* USER CODE BEGIN 4 */
 static void MY_Period_Init(int time_irrigation)
 {
-	p_stade_1 = (time_irrigation*60*4)/(10*3);			// 3 samples
-	p_stade_2 = (time_irrigation*60*2)/(10*4);			// 4 samples
-	p_stade_3 = (time_irrigation*60*2)/(10*5);			// 5 samples
-	p_stade_4 = 2;										//2s
+	p_stade_1 = (time_irrigation*60*2)/(5*3);			// 3 samples
+//	p_stade_2 = (time_irrigation*60*1)/(5*4);			// 4 samples
+//	p_stade_3 = (time_irrigation*60*1)/(5*5);			// 5 samples
+	p_stade_4 = 2;										// 2s
 }
 
 
@@ -515,28 +523,7 @@ static void MX_TIM2_Init_stade_3(void)
   /* USER CODE END TIM2_Init 2 */
 
 }
-/**	delay based on SysTick without interrupt
-  * HCLK = 32MHz, system clock= HCLK/8 = 4MHz
-  * 	pour avoir 1 ms de delay, il faut 4000 ticks
-  * 	LOAD registre a 24 bits, donc la valeur la plus large de nms = 2^24/4000 = 4194.3ns = 4.19s
-  */
-void delay_ms(uint16_t nms)
-{
-	uint32_t temp;
 
-	SysTick->LOAD = (uint32_t)4000*nms;
-	SysTick->VAL=0X00;
-	SysTick->CTRL=0X01;//使能，减到零是无动作，采用外部时钟源
-
-	do
-	{
-		temp=SysTick->CTRL;//读取当前倒计
-	}
-	while((temp&0x01)&&(!(temp&(1<<16))));//等待时间到达
-
-	SysTick->CTRL=0x00; //关闭计数
-	SysTick->VAL =0X00; //清空计数
-}
 /**	  control part of the irrigation
  *
  *
@@ -545,15 +532,23 @@ void delay_ms(uint16_t nms)
 
 void irrigation(int seuil_low, int seuil_high)
 {
-	if (min == time_irri+1 )							//wait 1 minute before starting another loop
+	seuil_1 = DH*0.15+seuil_h;
+	seuil_2 = DH*0.05+seuil_h;
+
+	x = min*60 + second;
+
+	if (x == (real_time_irri + 1)*60 && end == 1)			//wait 1 minute before starting another loop
 	{
 		HAL_GPIO_WritePin(GPIOC,GPIO_PIN_0,SET);	//LED on
-		Update_Period(&p_stade_1, &p_stade_2, &p_stade_3, &p_stade_4);	//update sampling period
+
 		/* prepare for another loop */
 		Humitide_fin_stade1 = 0;
 		Humitide_fin_stade2 = 0;
 		Humitide_fin_stade3 = 0;
 		min = 0;
+
+		i = 0;
+		end = 0;
 		/*	restart to read data from sensor */
 
 		MX_TIM2_Init_stade_1();
@@ -566,10 +561,35 @@ void irrigation(int seuil_low, int seuil_high)
 	{
 		flag = 1;
 
+		if (i < sample_1+sample_2+sample_3 && Humitide_sol[i] <= seuil_h)
+		{
+			HAL_GPIO_WritePin(GPIOC,GPIO_PIN_0,RESET);
+			HAL_TIM_Base_Stop_IT(&htim2);
+			Tau = x/5;
+			p_stade_1 = Tau/3;
+			real_time_irri = (double)min + (second/60.0);
+			end = 1;
+		}
+
 		if (i == sample_1)							//swap to stade2
 		{
 			Humitide_fin_stade1 = Humitide_sol[i];
 			HAL_TIM_Base_Stop_IT(&htim2);
+
+
+			if( Humitide_fin_stade1 >= seuil_1-1 && Humitide_fin_stade1 <= seuil_1+1 )
+			{
+				p_stade_2 = (time_irri*60)/(5*4);
+
+			}
+			else
+			{
+				x = min*60 + second;
+				y = log(DH/(Humitide_fin_stade1-seuil_h));
+				Tau = x/y;
+				p_stade_2 = Tau/4;
+			}
+
 			MX_TIM2_Init_stade_2();
 			TIM2->SR &= ~TIM_SR_UIF;
 			HAL_TIM_Base_Start_IT(&htim2);
@@ -578,6 +598,19 @@ void irrigation(int seuil_low, int seuil_high)
 		{
 			Humitide_fin_stade2 = Humitide_sol[i];
 			HAL_TIM_Base_Stop_IT(&htim2);
+
+			if( Humitide_fin_stade2 >= seuil_2-1 && Humitide_fin_stade1 <= seuil_2+1 )
+			{
+				p_stade_3 = (time_irri*60)/(5*5);
+			}
+			else
+			{
+				x = min*60 + second;
+				y = log(DH/(Humitide_fin_stade2-seuil_h));
+				Tau = x/y;
+				p_stade_3 = Tau/5;
+			}
+
 			MX_TIM2_Init_stade_3();
 			TIM2->SR &= ~TIM_SR_UIF;
 			HAL_TIM_Base_Start_IT(&htim2);
@@ -590,12 +623,14 @@ void irrigation(int seuil_low, int seuil_high)
 			TIM2->SR &= ~TIM_SR_UIF;
 			HAL_TIM_Base_Start_IT(&htim2);
 		}
-		else if (i >= sample_1+sample_2+sample_3 && Humitide_sol[i] <= seuil_h)
+		else if (i > sample_1+sample_2+sample_3 && Humitide_sol[i] <= seuil_h)
 		{
 			HAL_GPIO_WritePin(GPIOC,GPIO_PIN_0,RESET);
 			HAL_TIM_Base_Stop_IT(&htim2);
-
-//			time_irri = min+1;
+			real_time_irri = (double)min + (second/60.0);
+			Tau = x/5;
+			p_stade_1 = (Tau*2)/3;
+			end = 1;
 		}
 		else
 		{
@@ -606,40 +641,6 @@ void irrigation(int seuil_low, int seuil_high)
 
 }
 
-void Update_Period(int* stade1, int* stade2, int* stade3, int* stade4)
-{
-	int seuil_1 = DH*0.15+seuil_h;
-	int seuil_2 = DH*0.05+seuil_h;
-	int seuil_3 = DH*0.02+seuil_h;
-
-	if (Humitide_fin_stade1 > seuil_1 )
-	{
-		*stade1 = *stade1 + 2;
-	}
-	else if (Humitide_fin_stade1 < seuil_1)
-	{
-		*stade1 = *stade1 - 2;
-	}
-
-	if (Humitide_fin_stade2 > seuil_2 )
-	{
-		(*stade2)++;
-	}
-	else if (Humitide_fin_stade2 < seuil_2 )
-	{
-		(*stade2)--;
-	}
-
-	if (Humitide_fin_stade3 > seuil_3 )
-	{
-		(*stade3)++;
-	}
-	else if (Humitide_fin_stade3 < seuil_3 )
-	{
-		(*stade3)--;
-	}
-
-}
 /* USER CODE END 4 */
 
 /**
