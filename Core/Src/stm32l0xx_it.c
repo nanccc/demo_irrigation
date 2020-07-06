@@ -62,6 +62,7 @@ extern TIM_HandleTypeDef htim3;
 extern int flag;
 extern int i;
 extern int a;
+extern int second;
 extern int min;
 extern int seuil_l;
 extern int seuil_h;
@@ -195,12 +196,13 @@ void TIM3_IRQHandler(void)
   /* USER CODE END TIM3_IRQn 0 */
   HAL_TIM_IRQHandler(&htim3);
   /* USER CODE BEGIN TIM3_IRQn 1 */
-  min++;
-  if (min == time_irri+1)
+  second++;
+  if (second == 60)
   {
-	  i = 0;
-
+	  min++;
+	  second = 0;
   }
+
   /* USER CODE END TIM3_IRQn 1 */
 }
 
