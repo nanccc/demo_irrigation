@@ -42,7 +42,7 @@
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN PV */
-
+int n;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -68,7 +68,11 @@ extern int seuil_l;
 extern int seuil_h;
 extern int seuil[3][2];
 
+extern int period;
+
 extern int time_irri;
+extern int cnt;
+
 
 /* USER CODE END EV */
 
@@ -173,6 +177,7 @@ void EXTI4_15_IRQHandler(void)
 
 /**
   * @brief This function handles TIM2 global interrupt.
+  * @details read data from the sensor every interrupt
   */
 void TIM2_IRQHandler(void)
 {
@@ -181,13 +186,32 @@ void TIM2_IRQHandler(void)
   /* USER CODE END TIM2_IRQn 0 */
   HAL_TIM_IRQHandler(&htim2);
   /* USER CODE BEGIN TIM2_IRQn 1 */
-  i++;
-  flag = 0;
+  if(cnt == 0)
+  {
+	  i++;
+	  flag = 0;
+  }
+  else {
+	  n++;
+
+	  if (n == cnt)
+	  {
+		  htim2.Instance->ARR=period%60*1000-1;
+	  }
+	  else if (n == cnt+1)
+	  {
+		  i++;
+		  flag = 0;
+		  htim2.Instance->ARR=59999;
+		  n=0;
+	  }
+  }
   /* USER CODE END TIM2_IRQn 1 */
 }
 
 /**
   * @brief This function handles TIM3 global interrupt.
+  * @details count total time of irrigation
   */
 void TIM3_IRQHandler(void)
 {

@@ -48,13 +48,10 @@ TIM_HandleTypeDef htim3;
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
-int Humitide_sol[70] ={150, 100, 87, 75, 74, 70, 69, 68, 68, 67,\
-		 67, 66, 65, 65, 65, 65, 65, 65, 65, 65,\
-		 64, 64, 64, 64, 65, 64, 64, 64, 64, 64,\
-		 63, 63, 63, 63, 64, 63, 63, 63, 63, 63,\
-		 62, 62, 62, 62, 62, 62, 62, 60, 60, 59,\
-		 62, 62, 62, 62, 62, 62, 62, 62, 62, 62,\
-		 61, 61, 61, 61, 61, 61, 61, 60, 60, 59};
+float Humitide_sol[40] ={100, 95, 82, 69, 66.7, 66.5, 64.5, 63, 62.9, 62.8,\
+		62.8, 62.8, 62.8, 62.8, 62.8, 62.7, 62.6, 62.5, 62.4, 62.3,\
+		62.2, 62.1, 61.5, 61.4, 60.9, 60.7, 60.3, 60.2, 60.2, 60.3, 60.1,\
+		60, 60, 62, 69, 75, 85, 92, 93};
 
 int seuil[3][2] ={ {30, 60},{45, 75},{60, 150} };
 int Humitide_begin;
@@ -63,7 +60,7 @@ int p_stade_1;
 int p_stade_2;
 int p_stade_3;
 int p_stade_4;
-int time_irri = 6;					// irrigation time: minus
+int time_irri = 5;					// irrigation time: minus
 int seuil_1;
 int seuil_2;
 double real_time_irri;
@@ -71,14 +68,15 @@ int sample_1 = 3;
 int sample_2 = 4;
 int sample_3 = 5;
 
-int Humitide_fin_stade1;
-int Humitide_fin_stade2;
-int Humitide_fin_stade3;
+float Humitide_fin_stade1;
+float Humitide_fin_stade2;
+float Humitide_fin_stade3;
 
 double y=0;
 int x=0;
 int Tau=0;
 int end=0;
+int seuil_90=90;
 
 /**  Global variable  */
 int i = 0;
@@ -88,6 +86,9 @@ int seuil_l;
 int seuil_h;
 int second = 0;
 int min = 0;
+int cnt = 0;
+int cnt2 = 0;
+int period;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -101,7 +102,7 @@ static void MY_Period_Init(int time_irrigation);
 static void MX_TIM2_Init_stade_1(void);
 static void MX_TIM2_Init_stade_2(void);
 static void MX_TIM2_Init_stade_3(void);
-void delay_ms(uint16_t nms);
+static void MX_TIM2_Init_30s(void);
 void irrigation(int seuil_low, int seuil_high);
 
 /* USER CODE END PFP */
@@ -124,6 +125,7 @@ int main(void)
   /* MCU Configuration--------------------------------------------------------*/
 
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
+
   HAL_Init();
 
   /* USER CODE BEGIN Init */
@@ -147,8 +149,8 @@ int main(void)
   HAL_GPIO_WritePin(GPIOC,GPIO_PIN_0,RESET);
   HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, RESET);
   MX_TIM2_Init_stade_1();
-  TIM2->SR &= ~TIM_SR_UIF;						//!< clear update interrupt Flag
-  TIM3->SR &= ~TIM_SR_UIF;						//!< clear update interrupt Flag
+  TIM2->SR &= ~TIM_SR_UIF;						// clear update interrupt Flag
+  TIM3->SR &= ~TIM_SR_UIF;						// clear update interrupt Flag
   HAL_TIM_Base_Start_IT(&htim2);
   HAL_TIM_Base_Start_IT(&htim3);
   HAL_GPIO_WritePin(GPIOC,GPIO_PIN_0,SET);
@@ -395,15 +397,35 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+/**
+  * @brief sampling period Initialization Function
+  * @details Initialize the first stage, the fourth stage sampling period,
+  * 	     sampling period stage 4 = 2s
+  * @param time_irrigation
+  * @retval None
+  */
 static void MY_Period_Init(int time_irrigation)
 {
 	p_stade_1 = (time_irrigation*60*2)/(5*3);			// 3 samples
-//	p_stade_2 = (time_irrigation*60*1)/(5*4);			// 4 samples
-//	p_stade_3 = (time_irrigation*60*1)/(5*5);			// 5 samples
-	p_stade_4 = 2;										// 2s
+//	p_stade_2 = 10;										//test
+//	p_stade_3 = 200;									//test
+	p_stade_4 = 2;
+
+	if(p_stade_1 > 60)
+	{
+		cnt=p_stade_1/60;
+		cnt2=p_stade_1%60;
+		period = p_stade_1;
+		p_stade_1 =60;
+	}
+
 }
 
-
+/**
+  * @brief TIM2 stade 1 Initialization Function
+  * @param sampling period:p_stade_1
+  * @retval None
+  */
 static void MX_TIM2_Init_stade_1(void)
 {
 
@@ -444,6 +466,11 @@ static void MX_TIM2_Init_stade_1(void)
 
 }
 
+/**
+  * @brief TIM2 stade 2 Initialization Function
+  * @param sampling period:p_stade_2
+  * @retval None
+  */
 static void MX_TIM2_Init_stade_2(void)
 {
 
@@ -484,6 +511,11 @@ static void MX_TIM2_Init_stade_2(void)
 
 }
 
+/**
+  * @brief TIM2 stade 3 Initialization Function
+  * @param sampling period:p_stade_3
+  * @retval None
+  */
 static void MX_TIM2_Init_stade_3(void)
 {
 
@@ -524,10 +556,58 @@ static void MX_TIM2_Init_stade_3(void)
 
 }
 
-/**	  control part of the irrigation
- *
- *
- *
+/**
+  * @brief TIM2 Initialization Function
+  * sampling period : 30 seconds
+  * @param Period = 29999
+  * @retval None
+  */
+static void MX_TIM2_Init_30s(void)
+{
+
+  /* USER CODE BEGIN TIM2_Init 0 */
+
+  /* USER CODE END TIM2_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM2_Init 1 */
+
+  /* USER CODE END TIM2_Init 1 */
+  htim2.Instance = TIM2;
+  htim2.Init.Prescaler = 31999;
+  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim2.Init.Period = 29999;
+  htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim2, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM2_Init 2 */
+
+  /* USER CODE END TIM2_Init 2 */
+
+}
+
+/**
+  * @brief  control part of the irrigation
+  * @brief 	Handling transitions between different stages
+  * @param seuil_low, seuil_high
+  *
+  *
   */
 
 void irrigation(int seuil_low, int seuil_high)
@@ -535,28 +615,8 @@ void irrigation(int seuil_low, int seuil_high)
 	seuil_1 = DH*0.15+seuil_h;
 	seuil_2 = DH*0.05+seuil_h;
 
-	x = min*60 + second;
 
-	if (x == (real_time_irri + 1)*60 && end == 1)			//wait 1 minute before starting another loop
-	{
-		HAL_GPIO_WritePin(GPIOC,GPIO_PIN_0,SET);	//LED on
-
-		/* prepare for another loop */
-		Humitide_fin_stade1 = 0;
-		Humitide_fin_stade2 = 0;
-		Humitide_fin_stade3 = 0;
-		min = 0;
-
-		i = 0;
-		end = 0;
-		/*	restart to read data from sensor */
-
-		MX_TIM2_Init_stade_1();
-		TIM2->SR &= ~TIM_SR_UIF;
-		HAL_TIM_Base_Start_IT(&htim2);
-	}
-
-	/* read a new data from the sensor */
+	/** read a new data from the sensor */
  	if (flag == 0)
 	{
 		flag = 1;
@@ -568,6 +628,7 @@ void irrigation(int seuil_low, int seuil_high)
 			Tau = x/5;
 			p_stade_1 = Tau/3;
 			real_time_irri = (double)min + (second/60.0);
+			cnt = 0;
 			end = 1;
 		}
 
@@ -575,7 +636,7 @@ void irrigation(int seuil_low, int seuil_high)
 		{
 			Humitide_fin_stade1 = Humitide_sol[i];
 			HAL_TIM_Base_Stop_IT(&htim2);
-
+			cnt = 0;
 
 			if( Humitide_fin_stade1 >= seuil_1-1 && Humitide_fin_stade1 <= seuil_1+1 )
 			{
@@ -588,6 +649,14 @@ void irrigation(int seuil_low, int seuil_high)
 				y = log(DH/(Humitide_fin_stade1-seuil_h));
 				Tau = x/y;
 				p_stade_2 = Tau/4;
+
+				if(p_stade_2 > 60)
+				{
+					cnt=p_stade_2/60;
+					cnt2=p_stade_2%60;
+					period = p_stade_2;
+					p_stade_2 =60;
+				}
 			}
 
 			MX_TIM2_Init_stade_2();
@@ -598,8 +667,9 @@ void irrigation(int seuil_low, int seuil_high)
 		{
 			Humitide_fin_stade2 = Humitide_sol[i];
 			HAL_TIM_Base_Stop_IT(&htim2);
+			cnt = 0;
 
-			if( Humitide_fin_stade2 >= seuil_2-1 && Humitide_fin_stade1 <= seuil_2+1 )
+			if( Humitide_fin_stade2 >= seuil_2-0.5 && Humitide_fin_stade1 <= seuil_2+0.5 )
 			{
 				p_stade_3 = (time_irri*60)/(5*5);
 			}
@@ -609,6 +679,14 @@ void irrigation(int seuil_low, int seuil_high)
 				y = log(DH/(Humitide_fin_stade2-seuil_h));
 				Tau = x/y;
 				p_stade_3 = Tau/5;
+
+				if(p_stade_3 > 60)
+				{
+					cnt=p_stade_3/60;
+					cnt2=p_stade_3%60;
+					period = p_stade_3;
+					p_stade_3 =60;
+				}
 			}
 
 			MX_TIM2_Init_stade_3();
@@ -619,18 +697,54 @@ void irrigation(int seuil_low, int seuil_high)
 		{
 			Humitide_fin_stade3 = Humitide_sol[i];
 			HAL_TIM_Base_Stop_IT(&htim2);
+			cnt = 0;
 			MX_TIM2_Init();
 			TIM2->SR &= ~TIM_SR_UIF;
 			HAL_TIM_Base_Start_IT(&htim2);
 		}
-		else if (i > sample_1+sample_2+sample_3 && Humitide_sol[i] <= seuil_h)
+		else if (i > sample_1+sample_2+sample_3 && Humitide_sol[i] <= seuil_h && end == 0)
 		{
 			HAL_GPIO_WritePin(GPIOC,GPIO_PIN_0,RESET);
 			HAL_TIM_Base_Stop_IT(&htim2);
+
 			real_time_irri = (double)min + (second/60.0);
+			time_irri = real_time_irri;
+
+			x = min*60 + second;
 			Tau = x/5;
 			p_stade_1 = (Tau*2)/3;
 			end = 1;
+
+			MX_TIM2_Init_30s();
+			TIM2->SR &= ~TIM_SR_UIF;
+			HAL_TIM_Base_Start_IT(&htim2);
+
+		}
+		else if (end == 1 && Humitide_sol[i] >= seuil_90)
+		{
+			HAL_GPIO_WritePin(GPIOC,GPIO_PIN_0,SET);	//LED on
+
+			// prepare for another loop
+			Humitide_fin_stade1 = 0;
+			Humitide_fin_stade2 = 0;
+			Humitide_fin_stade3 = 0;
+			min = 0;
+
+			i = 0;
+			end = 0;
+			// restart to read data from sensor
+			if(p_stade_1 > 60)
+			{
+				cnt=p_stade_1/60;
+				cnt2=p_stade_1%60;
+				period = p_stade_1;
+				p_stade_1 =60;
+			}
+
+			MX_TIM2_Init_stade_1();
+			TIM2->SR &= ~TIM_SR_UIF;
+			HAL_TIM_Base_Start_IT(&htim2);
+
 		}
 		else
 		{
